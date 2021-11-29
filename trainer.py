@@ -127,7 +127,7 @@ class TrainerRec(object):
                 batch_data['targets_lengths'] = targets_lengths
                 batch_data['img'] = batch_data['img'].to(self.to_use_device)
                 batch_data['targets'] = batch_data['targets'].to(self.to_use_device)
-                output = self.model(batch_data['img'], batch_data['targets'])
+                output = self.model(batch_data['img'], batch_data['targets'][:, :-1])
                 loss = self.loss_func(output, batch_data)
 
                 nums += batch_data['img'].shape[0]
