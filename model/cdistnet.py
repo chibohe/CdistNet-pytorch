@@ -47,26 +47,41 @@ class CDistNet(nn.Module):
                                         global_flags.batch_max_length, pos_flags.n_position)
         sem_flags = flags.SemanticEmbedding
         self.converter = LabelConverter(flags)
-        self.sem_module = SemanticEmbedding(sem_flags.d_model, self.converter.char_num, global_flags.padding_idx, 
+        self.sem_module = SemanticEmbedding(sem_flags.d_model, self.converter.char_num,
                                         sem_flags.rnn_layers, sem_flags.d_k, global_flags.batch_max_length, 
-                                        sem_flags.rnn_dropout, sem_flags.attn_dropout, global_flags.is_train)
+                                        sem_flags.rnn_dropout, sem_flags.attn_dropout, global_flags.padding_idx)
         mdcdp_flags = flags.MDCDP
         self.mdcdp = MDCDP(mdcdp_flags.n_layer_sae, mdcdp_flags.d_model_sae, mdcdp_flags.d_inner_sae, 
                             mdcdp_flags.n_head_sae, mdcdp_flags.d_k_sae, mdcdp_flags.d_v_sae, 
                             mdcdp_flags.n_layer, mdcdp_flags.d_model, mdcdp_flags.d_inner, 
                             mdcdp_flags.n_head, mdcdp_flags.d_k, mdcdp_flags.d_v,mdcdp_flags.dropout)
         self.linear = nn.Linear(mdcdp_flags.d_model, self.converter.char_num)
+        self.is_train = flags.Global.is_train
+        self.max_seq_len = global_flags.batch_max_length + 1
 
 
     def forward(self, input, input_char):
         vis_feature = self.vis_module(input)
         pos_embedding = self.pos_module(input_char)
-        sem_embedding = self.sem_module(vis_feature, input_char)
-        for i in range(3):
-            pos_embedding, vis_feature, sem_embedding = self.mdcdp(pos_embedding, vis_feature, sem_embedding)
+        if self.is_train:
+            sem_embedding = self.sem_module(vis_feature, input_char)
+            outputs = self.mdcdp(pos_embedding, vis_feature, sem_embedding)
+            outputs = self.linear(outputs)
+        else:
+            outputs = []
+            for i in range(self.max_seq_len):
+                sem_embedding = self.sem_module(vis_feature, input_char)
+                fuse_feature = self.mdcdp(pos_embedding, vis_feature, sem_embedding)
+                fuse_feature_step = fuse_feature[:, i, :]
+                fuse_feature_step = self.linear(fuse_feature_step)
+                outputs.append(fuse_feature_step)
+                fuse_feature_step = F.softmax(fuse_feature_step, dim=-1)
+                _, max_idx = torch.max(fuse_feature_step, dim=1, keepdim=False)
+                if i < self.max_seq_len - 1:
+                    input_char[:, i+1] = max_idx
+            outputs = torch.stack(outputs, dim=1)
 
-        output = self.linear(pos_embedding)
-        return output
+        return outputs
 
 
 

@@ -41,7 +41,7 @@ class MDCDP(nn.Module):
                           stride=1, padding=0, bias=False)
         self.active = nn.Sigmoid()
         
-    def _generate_mask(self, query, key):
+    def _generate_pos_mask(self, query, key):
         query_length = query.size(1)
         key_length = key.size(1)
         mask = torch.tril(
@@ -49,12 +49,22 @@ class MDCDP(nn.Module):
         ).to(device)
         return mask
 
+    def _generate_tgt_mask(self, query, key):
+        pad_mask = (query != self.padding_idx).unsqueeze(1).unsqueeze(3)
+        query_length = query.size(1)
+        key_length = key.size(1)
+        sub_mask = torch.tril(
+            torch.ones((query_length, key_length), dtype=torch.bool)
+        ).to(device)
+        target_mask = pad_mask & sub_mask
+        return target_mask
+
     def forward(self, pos_embedding, vis_feature, sem_embedding):
         # self attention enhancement
-        pos_mask = self._generate_mask(pos_embedding, pos_embedding)
+        pos_mask = self._generate_pos_mask(pos_embedding, pos_embedding)
         pos_feature = self.sae(pos_embedding, pos_embedding, pos_embedding, pos_mask)
         vis_feature = self.cbi_v(pos_feature, vis_feature, vis_feature)
-        sem_mask = self._generate_mask(pos_feature, sem_embedding)
+        sem_mask = self._generate_pos_mask(pos_feature, sem_embedding)
         sem_embedding = self.cbi_s(pos_feature, sem_embedding, sem_embedding, sem_mask)
         # (batch_size, length, channel * 2)
         context = torch.cat([vis_feature, sem_embedding], dim=2)
@@ -66,7 +76,7 @@ class MDCDP(nn.Module):
         context_sem_embedding = context * sem_embedding
         fuse_feature = context_vis_feature + context_sem_embedding
 
-        return fuse_feature, vis_feature, sem_embedding
+        return fuse_feature
         
 
 

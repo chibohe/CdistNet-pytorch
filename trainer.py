@@ -43,7 +43,7 @@ class TrainerRec(object):
         self.flags = flags.Global
         self.global_state = global_state
         self.converter = LabelConverter(flags)
-        logging.info(self.flags)
+        logging.info(flags)
 
 
     def train(self):

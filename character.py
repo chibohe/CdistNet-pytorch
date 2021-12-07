@@ -46,22 +46,23 @@ class LabelConverter(object):
         assert self.character_str is not None, \
             "Nonsupport type of the character: {}".format(self.character_str)
 
-        self.character = ['[Go]', '[s]'] + dict_character  #  '[Go]' for the start token, '[s]' for the end token
+        self.character = ['[GO]', '[END]'] + dict_character  #  '[Go]' for the start token, '[s]' for the end token
         self.dict = {}
         for i, char in enumerate(self.character):
             self.dict[char] = i 
         self.char_num = len(self.character)
 
     def encode(self, text):
-        length = [len(s) + 1 for s in text]
-        batch_max_length = max(length) + 1
+        length = [len(s) for s in text]
+        batch_max_length = max(length) + 2
         batch_size = len(length)
-        outputs = torch.LongTensor(batch_size, batch_max_length).fill_(0)
+        outputs = torch.LongTensor(batch_size, batch_max_length).fill_(1)
         for i in range(batch_size):
-            curr_text = list(text[i])
-            curr_text.append('[s]')
+            curr_text = ['[GO]']
+            curr_text.extend(list(text[i]))
+            curr_text.append('[END]')
             curr_text = [self.dict[char] for char in curr_text]
-            outputs[i, 1: len(curr_text)+1] = torch.LongTensor(curr_text)
+            outputs[i, :len(curr_text)] = torch.LongTensor(curr_text)
         return (outputs, torch.IntTensor(length))
 
     def decode(self, preds):
@@ -73,7 +74,7 @@ class LabelConverter(object):
             text_conf.append((curr_text, prob))
         result_list = []
         for text, prob in text_conf:
-            end_index = ''.join(text).find('[s]')
+            end_index = ''.join(text).find('[END]')
             text = text[: end_index]
             prob = prob[: end_index]
             result_list.append((''.join(text), prob))

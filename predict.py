@@ -81,9 +81,8 @@ class Recoginizer(object):
         with torch.no_grad():
             image_tensor = image_tensor.to(self.device)
             batch_size = image_tensor.size(0)
-            pseudo_text = torch.zeros(batch_size, self.config.Global.batch_max_length).long().to(self.device)
+            pseudo_text = torch.ones(batch_size, self.num_steps).long().to(self.device)
             outputs = self.model(image_tensor, pseudo_text)
-            print(outputs.shape)
             outputs = outputs.softmax(dim=2).detach().cpu().numpy()
             preds_str = self.converter.decode(outputs)
 

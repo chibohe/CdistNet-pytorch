@@ -101,6 +101,9 @@ def build_pretrained_weights(flags, model, optimizer):
     else:
         global_state = {}
         model.apply(weight_init)
+        for m in model.modules():
+            if isinstance(m, nn.BatchNorm2d):
+                m.track_running_stats = False
     return model, optimizer, global_state
 
 

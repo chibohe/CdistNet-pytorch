@@ -27,10 +27,10 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 class SemanticEmbedding(nn.Module):
-    def __init__(self, d_model, num_classes, padding_idx=0, rnn_layers=2, d_k = 64, 
-                        max_seq_len=50, rnn_dropout=0, attn_dropout=0.1, is_train=True):
+    def __init__(self, d_model, num_classes, rnn_layers=2, d_k = 64, max_seq_len=50, 
+                rnn_dropout=0, attn_dropout=0.1, padding_idx=1):
         super(SemanticEmbedding, self).__init__()
-        self.embedding = nn.Embedding(num_classes, d_model, padding_idx=padding_idx)
+        self.embedding = nn.Embedding(num_classes, d_model)
         self.sequence_layer = nn.LSTM(
             input_size=d_model,
             hidden_size=d_model,
@@ -38,39 +38,27 @@ class SemanticEmbedding(nn.Module):
             batch_first=True,
             dropout=rnn_dropout)
         self.attention_layer = ScaledDotProductAttention(d_k, attn_dropout)
-        self.is_train = is_train
         self.linear = nn.Linear(d_model, num_classes)
         self.max_seq_len = max_seq_len + 1
+        self.padding_idx = padding_idx
 
     def _generate_mask(self, query, key):
+        pad_mask = (query != self.padding_idx).unsqueeze(2)
         query_length = query.size(1)
         key_length = key.size(1)
-        mask = torch.tril(
+        sub_mask = torch.tril(
             torch.ones((query_length, key_length), dtype=torch.bool)
         ).to(device)
-        return mask
+        target_mask = pad_mask & sub_mask
+        return target_mask
 
     def forward(self, enc_feats, input_char):
         # enc_feats: [n, w, c]
         self.sequence_layer.flatten_parameters()
-        if self.is_train:
-            input_embedding = self.embedding(input_char)
-            semantic_embedding, _ = self.sequence_layer(input_embedding)
-            semantic_mask = self._generate_mask(input_char, enc_feats)
-            outputs = self.attention_layer(semantic_embedding, enc_feats, enc_feats, semantic_mask)[0]
-        else:
-            outputs = []
-            for i in range(self.max_seq_len):
-                input_embedding = self.embedding(input_char)
-                semantic_embedding, _ = self.sequence_layer(input_embedding)
-                semantic_feats = self.attention_layer(semantic_embedding, enc_feats, enc_feats)[0]
-                curr_feat = semantic_feats[:, i, :]
-                outputs.append(curr_feat)
-                curr_feat = self.linear(curr_feat)
-                curr_feat = F.softmax(curr_feat, dim=-1)
-                _, max_idx = torch.max(curr_feat, dim=1, keepdim=False)
-                input_char[:, i + 1] = max_idx
-            outputs = torch.stack(outputs, dim=1)
+        input_embedding = self.embedding(input_char)
+        semantic_embedding, _ = self.sequence_layer(input_embedding)
+        semantic_mask = self._generate_mask(input_char, enc_feats)
+        outputs = self.attention_layer(semantic_embedding, enc_feats, enc_feats, semantic_mask)[0]
         return outputs
 
 

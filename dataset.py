@@ -116,7 +116,7 @@ class BatchBalancedDataset(object):
             #     pass
 
         batch['img'] = torch.cat(batch['img'], 0)
-
+        
         return batch
 
 
@@ -180,6 +180,7 @@ class LmdbDataset(Dataset):
         self.character = characters
         self.rgb = params.Global.image_shape[0] == 3
         self.env = lmdb.open(root, max_readers=32, readonly=True, lock=False, readahead=False, meminit=False)
+        self.sensitive = params.Global.sensitive
         if not self.env:
             print('cannot create lmdb from %s' % (root))
             sys.exit(0)
@@ -203,7 +204,7 @@ class LmdbDataset(Dataset):
                     label_key = 'label-%09d'.encode() % index
                     label = txn.get(label_key).decode('utf-8')
 
-                    if len(label) >= self.batch_max_length:
+                    if len(label) > self.batch_max_length:
                         # print(f'The length of the label is longer than max_length: length
                         # {len(label)}, {label} in dataset {self.root}')
                         continue
@@ -259,8 +260,8 @@ class LmdbDataset(Dataset):
                     img = Image.new('L', (self.imgW, self.imgH))
                 label = '[dummy_label]'
 
-            # if not self.opt.sensitive:
-            #     label = label.lower()
+            if not self.sensitive:
+                label = label.lower()
 
             # We only train and evaluate on alphanumerics (or pre-defined character set in train.py)
             out_of_char = f'[^{self.character}]'

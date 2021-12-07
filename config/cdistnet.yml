@@ -1,11 +1,11 @@
 TrainReader:
   dataloader: dataset,BatchBalancedDataset
-  select_data: 'ArT_train-LSVT_train-MTWI_train-RCTW17_train-ReCTS_train'
-  batch_ratio: '0.2-0.2-0.2-0.2-0.2'
+  select_data: 'MJ-ST'
+  batch_ratio: '0.5-0.5'
   total_data_usage_ratio: 1.0
   padding: True
   augment: False
-  batch_size: 128
+  batch_size: 256
   shuffle: True
   num_workers: 8
   lmdb_sets_dir: 
@@ -13,11 +13,11 @@ TrainReader:
 EvalReader:
   dataloader: dataset,evaldataloader
   select_data: '/'
-  batch_size: 64
+  batch_size: 256
   padding: True
   shuffle: True
   num_workers: 8
-  lmdb_sets_dir: 
+  lmdb_sets_dir:
 
 TestReader:
   dataloader: dataset,evaldataloader
@@ -38,15 +38,16 @@ Global:
   highest_acc_save_type: False
   data_filtering_off: False
   resumed_optimizer: False
-  batch_max_length: 50
+  batch_max_length: 30
   print_batch_step: 10
-  save_model_dir: output/CDistNet_20211129
+  save_model_dir: 
   eval_batch_step: 2000
-  image_shape: [1, 64, 256]
+  image_shape: [1, 32, 128]
   character_type: ch
-  padding_idx: 0
+  padding_idx: 1
   use_space_char: false
-  character_dict_path: 
+  sensitive: True
+  character_dict_path: ./dict/dic_62.txt
   seed: 1234
   pretrain_weights:
   save_inference_dir:
@@ -56,41 +57,41 @@ Architecture:
   function: model.cdistnet,CDistNet
 
 VisualModule:
-  layers: [1, 2, 5, 3]
+  layers: [3, 4, 6, 6, 3]
   n_layer: 3
-  d_model: 256
+  d_model: 512
   d_inner: 1024
   n_head: 8
-  d_k: 32
-  d_v: 32
-  dropout: 0.1
+  d_k: 64
+  d_v: 64
+  dropout: 0
 
 PositionalEmbedding:
-  d_onehot: 256
-  d_hid: 256
+  d_onehot: 512
+  d_hid: 512
   n_position: 200
 
 SemanticEmbedding:
-  d_model: 256
+  d_model: 512
   rnn_layers: 2
   rnn_dropout: 0
-  d_k: 32
-  attn_dropout: 0.1
+  d_k: 64
+  attn_dropout: 0
 
 MDCDP:
   n_layer_sae: 1
-  d_model_sae: 256
+  d_model_sae: 512
   d_inner_sae: 1024
   n_head_sae: 8
-  d_k_sae: 32
-  d_v_sae: 32
+  d_k_sae: 64
+  d_v_sae: 64
   n_layer: 3
-  d_model: 256
-  d_inner: 1024
+  d_model: 512
+  d_inner: 512
   n_head: 8
-  d_k: 32
-  d_v: 32
-  dropout: 0.1
+  d_k: 64
+  d_v: 64
+  dropout: 0
 
 Loss:
   function: loss,AttnLoss
@@ -103,5 +104,3 @@ Optimizer:
   weight_decay: 1.0e-4
   lr_decay_epoch: 10
   max_epoch: 1000
-  
-
