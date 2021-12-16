@@ -39,7 +39,7 @@ class ScaledDotProductAttention(nn.Module):
         attn = torch.bmm(q, k.transpose(1, 2))
         attn = attn / self.temperature
         if mask is not None:
-            attn = attn.masked_fill(mask, -1e9)
+            attn = attn.masked_fill(mask == 0, -1e9)
         attn = self.softmax(attn)     
         attn = self.dropout(attn)
         output = torch.bmm(attn, v)
